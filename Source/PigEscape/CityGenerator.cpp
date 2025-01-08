@@ -16,9 +16,15 @@ void ACityGenerator::BeginPlay()
 {
 	Super::BeginPlay();
 	InitializeGrid();
-	FIntPoint StartCell = { 0, 6 };
-	GenerateRoadNetwork(StartCell.X, StartCell.Y);
-	SpawnRoadTiles();
+	FIntPoint BottomStartCell = { 0, gridResolution / 2 + 1 };
+	FIntPoint TopStartCell = { gridResolution - 1, FMath::RandRange(0, gridResolution - 1)};
+	FIntPoint RightStartCell = { FMath::RandRange(0, gridResolution - 1), gridResolution - 1 };
+	FIntPoint LeftStartCell = { FMath::RandRange(0, gridResolution - 1), 0 };
+
+	GenerateRoadNetwork(BottomStartCell.X, BottomStartCell.Y, EDirection::Up);
+	GenerateRoadNetwork(RightStartCell.X, RightStartCell.Y, EDirection::Left);
+	GenerateRoadNetwork(LeftStartCell.X, LeftStartCell.Y, EDirection::Right);
+	//SpawnRoadTiles();
 }
 
 // Called every frame
@@ -42,28 +48,59 @@ void ACityGenerator::InitializeGrid()
 	}
 }
 
-void ACityGenerator::GenerateRoadNetwork(int X, int Y)
+void ACityGenerator::GenerateRoadNetwork(const int X, const int Y, EDirection PreviousDirection)
 {
 	Grid[X][Y] = true;
-	
-	TArray<FIntPoint> Directions = { {1, 0}, {0, 1}, {0, -1}, {-1, 0 } };
 
-	for (int i = 0; i < Directions.Num(); i++)
+	FVector Location = FVector(X * cellSize, Y * cellSize, 100);
+
+	SpawnRoadTile(Location, PreviousDirection);
+
+	TArray<FIntPoint> PossibleDirections;
+
+
+	switch(PreviousDirection)
 	{
-		int j = FMath::RandRange(i, Directions.Num() - 1);
-		Directions.Swap(i, j);
+		case EDirection::Up :
+			PossibleDirections = {  {1,0}, {0,1}, {0, -1} };
+			break;
+
+		case EDirection::Right :
+			PossibleDirections = {  {1,0}, {0,1} };
+			break;
+		
+		case EDirection::Left :
+			PossibleDirections = {  {1,0}, {0, -1} };
+			break;
 	}
 
-	for (const FIntPoint& Dir : Directions)
-	{
-		int NewX = X + Dir.X;
-		int NewY = Y + Dir.Y;
+	FIntPoint PickedDirection = PossibleDirections[FMath::RandRange(0, PossibleDirections.Num() - 1)];
 
-		// Check bounds and ensure we haven't already visited the cell
-		if (NewX >= 0 && NewX < gridResolution && NewY >= 0 && NewY < gridResolution && !Grid[NewX][NewY])
+	int NextX = X + PickedDirection.X;
+	int NextY = Y + PickedDirection.Y;
+
+	EDirection NextPreviousDirection = Directions[PickedDirection];
+
+	if (NextX >= 0 && NextX < gridResolution && NextY >= 0 && NextY < gridResolution && !Grid[NextX][NextY])
+	{
+		GenerateRoadNetwork(NextX, NextY, NextPreviousDirection);
+	}
+
+	float secondPathChance = 0.8f;
+	if (FMath::Rand() <= secondPathChance)
+	{
+		FIntPoint AlternatePickedDirection = PossibleDirections[FMath::RandRange(0, PossibleDirections.Num() - 1)];
+
+		if (AlternatePickedDirection != PickedDirection)
 		{
-			GenerateRoadNetwork(NewX, NewY);
+			NextX = X + AlternatePickedDirection.X;
+			NextY = Y + AlternatePickedDirection.Y;
+			NextPreviousDirection = Directions[AlternatePickedDirection];
+
+			if (NextX >= 0 && NextX < gridResolution && NextY >= 0 && NextY < gridResolution && !Grid[NextX][NextY])
+				GenerateRoadNetwork(NextX, NextY, NextPreviousDirection);
 		}
+
 	}
 	
 }
@@ -77,16 +114,31 @@ void ACityGenerator::SpawnRoadTiles()
 			if (Grid[i][j])
 			{
 				FVector Location = FVector(i * cellSize, j * cellSize, 100);
-				SpawnRoadTile(Location);
+				//SpawnRoadTile(Location);
 			}
 		}
 	}
 }
 
-void ACityGenerator::SpawnRoadTile(const FVector& Location)
+void ACityGenerator::SpawnRoadTile(const FVector& Location, const EDirection Direction)
 {
 	FActorSpawnParameters spawnParameters;
 
-	GetWorld()->SpawnActor<AActor>(RoadTileClass, Location, FRotator::ZeroRotator, spawnParameters);
+	FRotator SpawnRotation;
+
+	switch (Direction)
+	{
+	case EDirection::Left :
+		SpawnRotation = FRotator(0, 90, 0);
+		break;
+	case EDirection::Right :
+		SpawnRotation = FRotator(0, -90, 0);
+		break;
+	default: 
+		SpawnRotation = FRotator::ZeroRotator;
+		break;
+	}
+
+	GetWorld()->SpawnActor<AActor>(RoadTileClass, Location, SpawnRotation, spawnParameters);
 }
 

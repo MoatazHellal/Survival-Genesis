@@ -6,6 +6,12 @@
 #include "GameFramework/Actor.h"
 #include "CityGenerator.generated.h"
 
+enum class EDirection : uint8
+{
+	Up,
+	Right,
+	Left
+};
 UCLASS()
 class PIGESCAPE_API ACityGenerator : public AActor
 {
@@ -16,7 +22,7 @@ public:
 	ACityGenerator();
 private:
 	UPROPERTY(EditAnywhere, Category = "Grid")
-		int gridResolution = 10;
+		int gridResolution = 11;
 	UPROPERTY(EditAnywhere, Category = "Grid")
 		float cellSize = 1000.f;
 	UPROPERTY(EditAnywhere, Category = "Grid")
@@ -24,6 +30,7 @@ private:
 
 	TArray<TArray<bool>> Grid; //Array storing roads on the grid
 
+	TMap<FIntPoint, EDirection> Directions = { {{1,0}, EDirection::Up}, {{0,1}, EDirection::Right},  {{0, -1}, EDirection::Left} };
 
 
 protected:
@@ -36,7 +43,7 @@ public:
 
 private:
 	void InitializeGrid();
-	void GenerateRoadNetwork(int X, int Y);
+	void GenerateRoadNetwork(const int X, const int Y, EDirection PreviousDirection);
 	void SpawnRoadTiles();
-	void SpawnRoadTile(const FVector& Location);
+	void SpawnRoadTile(const FVector& Location, const EDirection Direction);
 };
